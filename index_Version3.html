@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Light Refraction from Water to Air</title>
+  <style>
+    body { text-align: center; font-family: sans-serif; }
+    #simulator { display: none; }
+    canvas { border: 1px solid #ccc; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <button onclick="showSimulator()">Light Refraction from Water to Air</button>
+  <div id="simulator">
+    <h2>Light Refraction: Water → Air</h2>
+    <p>Drag the blue point to change the incident angle.</p>
+    <canvas id="canvas" width="600" height="400"></canvas>
+  </div>
+
+  <script>
+    function showSimulator() {
+      document.getElementById('simulator').style.display = 'block';
+      if (!window.simulatorInitialized) {
+        window.simulatorInitialized = true; // Make sure it only runs once
+        startRefractionSimulator();
+      }
+    }
+
+    function startRefractionSimulator() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const interfaceY = H / 2;
+      const n1 = 1.33; // water
+      const n2 = 1.00; // air
+      const maxThickness = 8;
+
+      let source = { x: W/2 - 100, y: interfaceY - 80 };
+      const apex  = { x: W/2, y: interfaceY };
+      let dragging = false;
+
+      canvas.addEventListener('mousedown', e => {
+        const { x: mx, y: my } = toCanvasCoords(e);
+        if (distance(mx, my, source.x, source.y) < 12) dragging = true;
+      });
+      canvas.addEventListener('mouseup',  () => dragging = false);
+      canvas.addEventListener('mouseleave', () => dragging = false);
+      canvas.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const { x: mx, y: my } = toCanvasCoords(e);
+        if (my < interfaceY - 10) {
+          source.x = mx; source.y = my;
+          draw();
+        }
+      });
+
+      function toCanvasCoords(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      function distance(x1,y1,x2,y2) {
+        return Math.hypot(x2 - x1, y2 - y1);
+      }
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.fillStyle = 'rgba(173,216,230,0.4)';
+        ctx.fillRect(0, 0, W, interfaceY);
+        ctx.fillStyle = 'rgba(240,230,140,0.4)';
+        ctx.fillRect(0, interfaceY, W, H - interfaceY);
+
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, interfaceY);
+        ctx.lineTo(W, interfaceY);
+        ctx.stroke();
+
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(apex.x, apex.y, 6, 0, 2*Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle = 'blue';
+        ctx.beginPath();
+        ctx.arc(source.x, source.y, 8, 0, 2*Math.PI);
+        ctx.fill();
+
+        ctx.strokeStyle = 'blue';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(apex.x, apex.y);
+        ctx.stroke();
+
+        const dx = apex.x - source.x;
+        const dy = apex.y - source.y;
+        const theta1 = Math.atan2(Math.abs(dx), Math.abs(dy));
+        const sin2 = (n1 / n2) * Math.sin(theta1);
+
+        let R, T, theta2;
+        if (sin2 > 1) {
+          R = 1; T = 0;
+        } else {
+          theta2 = Math.asin(sin2);
+          const cos1 = Math.cos(theta1), cos2 = Math.cos(theta2);
+          const Rs = Math.pow((n1*cos1 - n2*cos2)/(n1*cos1 + n2*cos2), 2);
+          const Rp = Math.pow((n1*cos2 - n2*cos1)/(n1*cos2 + n2*cos1), 2);
+          R = 0.5 * (Rs + Rp);
+          T = 1 - R;
+        }
+
+        const rayLen = 200;
+        const rx = Math.sin(theta1), ry = -Math.cos(theta1);
+        ctx.strokeStyle = 'green';
+        ctx.lineWidth = maxThickness * R || 1;
+        ctx.beginPath();
+        ctx.moveTo(apex.x, apex.y);
+        ctx.lineTo(apex.x + rx * rayLen, apex.y + ry * rayLen);
+        ctx.stroke();
+
+        if (T > 0) {
+          const tx = Math.sin(theta2), ty = Math.cos(theta2);
+          ctx.strokeStyle = 'orange';
+          ctx.lineWidth = maxThickness * T || 1;
+          ctx.beginPath();
+          ctx.moveTo(apex.x, apex.y);
+          ctx.lineTo(apex.x + tx * rayLen, apex.y + ty * rayLen);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#000';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(`Reflection: ${(R*100).toFixed(1)}%`, 10, 20);
+        ctx.fillText(`Transmission: ${(T*100).toFixed(1)}%`, 10, 40);
+      }
+      draw();
+    }
+  </script>
+</body>
+</html>
