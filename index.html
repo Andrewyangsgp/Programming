@@ -3,10 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <title>Light Refraction from Water to Air</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"> <!-- Add this line -->
   <style>
-    body { text-align: center; font-family: sans-serif; }
+    body { text-align: center; font-family: sans-serif; margin: 0; padding: 0; }
     #simulator { display: none; }
-    canvas { border: 1px solid #ccc; margin-top: 10px; }
+    canvas { 
+      border: 1px solid #ccc; 
+      margin-top: 10px; 
+      max-width: 95vw; 
+      height: auto; 
+      width: 100%; 
+      box-sizing: border-box;
+      background: #fff;
+    }
+    @media (max-width: 600px) {
+      h2 { font-size: 1.2em; }
+      p { font-size: 1em; }
+      button { font-size: 1em; padding: 8px 12px; }
+    }
   </style>
 </head>
 <body>
@@ -14,14 +28,16 @@
   <div id="simulator">
     <h2>Light Refraction: Water → Air</h2>
     <p>Drag the blue point to change the incident angle.</p>
-    <canvas id="canvas" width="600" height="400"></canvas>
+    <div style="width:100%;max-width:600px;margin:auto;">
+      <canvas id="canvas" width="600" height="400"></canvas>
+    </div>
   </div>
 
   <script>
     function showSimulator() {
       document.getElementById('simulator').style.display = 'block';
       if (!window.simulatorInitialized) {
-        window.simulatorInitialized = true; // Make sure it only runs once
+        window.simulatorInitialized = true;
         startRefractionSimulator();
       }
     }
@@ -29,11 +45,23 @@
     function startRefractionSimulator() {
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-      const W = canvas.width, H = canvas.height;
-      const interfaceY = H / 2;
+      const maxThickness = 8;
+
+      // Responsive sizing
+      function resizeCanvas() {
+        // Set width relative to screen, but max 600px
+        const parentWidth = Math.min(window.innerWidth * 0.95, 600);
+        canvas.width = parentWidth;
+        canvas.height = parentWidth * (2/3); // keep aspect ratio
+        draw();
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+
+      let W = canvas.width, H = canvas.height;
+      let interfaceY = H / 2;
       const n1 = 1.33; // water
       const n2 = 1.00; // air
-      const maxThickness = 8;
 
       let source = { x: W/2 - 100, y: interfaceY - 80 };
       const apex  = { x: W/2, y: interfaceY };
@@ -54,14 +82,46 @@
         }
       });
 
+      // Touch support for mobile
+      canvas.addEventListener('touchstart', function(e) {
+        const touch = e.touches[0];
+        const { x: mx, y: my } = toCanvasCoords(touch);
+        if (distance(mx, my, source.x, source.y) < 20) dragging = true;
+      });
+      canvas.addEventListener('touchend',  () => dragging = false);
+      canvas.addEventListener('touchcancel', () => dragging = false);
+      canvas.addEventListener('touchmove', function(e) {
+        if (!dragging) return;
+        const touch = e.touches[0];
+        const { x: mx, y: my } = toCanvasCoords(touch);
+        if (my < interfaceY - 10) {
+          source.x = mx; source.y = my;
+          draw();
+        }
+        e.preventDefault();
+      }, {passive:false});
+
       function toCanvasCoords(e) {
         const r = canvas.getBoundingClientRect();
-        return { x: e.clientX - r.left, y: e.clientY - r.top };
+        return { x: (e.clientX - r.left) * (canvas.width / r.width), y: (e.clientY - r.top) * (canvas.height / r.height) };
       }
       function distance(x1,y1,x2,y2) {
         return Math.hypot(x2 - x1, y2 - y1);
       }
       function draw() {
+        W = canvas.width;
+        H = canvas.height;
+        interfaceY = H / 2;
+
+        // Adjust apex and source according to new size
+        apex.x = W/2;
+        apex.y = interfaceY;
+        // If screen resized, keep the source point relatively positioned
+        if (source.x > W || source.y > H) {
+          source.x = W/2 - 100;
+          source.y = interfaceY - 80;
+        }
+
         ctx.clearRect(0, 0, W, H);
 
         ctx.fillStyle = 'rgba(173,216,230,0.4)';
@@ -109,7 +169,7 @@
           T = 1 - R;
         }
 
-        const rayLen = 200;
+        const rayLen = Math.min(W, H) / 2; // Adjust length for screen
         const rx = Math.sin(theta1), ry = -Math.cos(theta1);
         ctx.strokeStyle = 'green';
         ctx.lineWidth = maxThickness * R || 1;
@@ -129,11 +189,11 @@
         }
 
         ctx.fillStyle = '#000';
-        ctx.font = '16px sans-serif';
-        ctx.fillText(`Reflection: ${(R*100).toFixed(1)}%`, 10, 20);
-        ctx.fillText(`Transmission: ${(T*100).toFixed(1)}%`, 10, 40);
+        ctx.font = (16 * (W/600)) + 'px sans-serif'; // Scalable font
+        ctx.fillText(`Reflection: ${(R*100).toFixed(1)}%`, 10, 20 * (H/400));
+        ctx.fillText(`Transmission: ${(T*100).toFixed(1)}%`, 10, 40 * (H/400));
       }
-      draw();
+      resizeCanvas(); // Initial sizing and draw
     }
   </script>
 </body>
